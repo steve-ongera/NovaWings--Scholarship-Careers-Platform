@@ -20,7 +20,8 @@ import Careers    from "./pages/Careers.jsx";
 import Login      from "./pages/Login.jsx";
 import Register   from "./pages/Register.jsx";
 
-// Protected pages
+// Protected pages 
+
 import StudentDashboard from "./pages/StudentDashboard.jsx";
 import AppJob           from "./pages/AppJob.jsx";
 

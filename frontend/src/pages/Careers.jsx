@@ -24,18 +24,67 @@ export default function Careers() {
   };
 
   useEffect(() => {
-    jobService.categories().then((r) => setCategories(r.data));
+    // Fetch categories with proper error handling
+    const fetchCategories = async () => {
+      try {
+        const response = await jobService.categories();
+        // Handle different response structures
+        let categoriesData = [];
+        if (response.data) {
+          categoriesData = response.data.results || response.data;
+        } else if (Array.isArray(response)) {
+          categoriesData = response;
+        } else {
+          categoriesData = [];
+        }
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        setCategories([]); // Set empty array on error
+      }
+    };
+    
+    fetchCategories();
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    const params = {};
-    if (filters.type)     params.job_type           = filters.type;
-    if (filters.category) params["category__slug"]  = filters.category;
-    if (filters.q)        params.search             = filters.q;
-    jobService.list(params)
-      .then((r) => setJobs(r.data.results || r.data))
-      .finally(() => setLoading(false));
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const params = {};
+        if (filters.type)     params.job_type = filters.type;
+        if (filters.category) params["category__slug"] = filters.category;
+        if (filters.q)        params.search = filters.q;
+        
+        const response = await jobService.list(params);
+        
+        // Handle different response structures
+        let jobsData = [];
+        if (response.data) {
+          jobsData = response.data.results || response.data;
+        } else if (Array.isArray(response)) {
+          jobsData = response;
+        } else {
+          jobsData = [];
+        }
+        
+        // Transform job data to include computed properties
+        const transformedJobs = jobsData.map(job => ({
+          ...job,
+          category_name: job.category?.name || job.category_name || "Uncategorized",
+          is_expired: job.deadline ? new Date(job.deadline) < new Date() : false
+        }));
+        
+        setJobs(transformedJobs);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchJobs();
   }, [search.toString()]);
 
   return (
@@ -68,9 +117,18 @@ export default function Careers() {
       <div className="container" style={{ padding: "2.5rem 1.5rem" }}>
         {/* Filters */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem" }}>
-          <select className="form-control" style={{ width: "auto" }} value={filters.category} onChange={(e) => setFilter("category", e.target.value)}>
+          <select 
+            className="form-control" 
+            style={{ width: "auto", minWidth: "200px" }} 
+            value={filters.category} 
+            onChange={(e) => setFilter("category", e.target.value)}
+          >
             <option value="">All Categories</option>
-            {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+            {Array.isArray(categories) && categories.map((c) => (
+              <option key={c.slug || c.id} value={c.slug}>
+                {c.name}
+              </option>
+            ))}
           </select>
           <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
             {JOB_TYPES.map((t) => (
@@ -82,6 +140,8 @@ export default function Careers() {
                   background: filters.type === t ? "var(--nw-navy)" : "white",
                   color:      filters.type === t ? "white" : "var(--nw-navy)",
                   border: "1.5px solid var(--nw-navy)",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
                 }}
               >
                 {t ? t.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "All Types"}
@@ -92,7 +152,9 @@ export default function Careers() {
 
         {/* Job list */}
         {loading ? (
-          <div className="flex-center" style={{ padding: "5rem" }}><div className="spinner"></div></div>
+          <div className="flex-center" style={{ padding: "5rem" }}>
+            <div className="spinner"></div>
+          </div>
         ) : jobs.length === 0 ? (
           <div className="text-center" style={{ padding: "5rem", color: "#9ca3af" }}>
             <i className="bi bi-briefcase" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem" }}></i>
@@ -105,9 +167,20 @@ export default function Careers() {
                 <div style={{ padding: "1.5rem", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
                     {job.company_logo
-                      ? <img src={job.company_logo} alt={job.company} style={{ width: 52, height: 52, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb", flexShrink: 0 }} />
-                      : <div style={{ width: 52, height: 52, background: "#f3f4f6", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="bi bi-building" style={{ color: "#9ca3af", fontSize: "1.25rem" }}></i></div>
+                      ? <img 
+                          src={job.company_logo} 
+                          alt={job.company} 
+                          style={{ width: 52, height: 52, borderRadius: 8, objectFit: "contain", border: "1px solid #e5e7eb", flexShrink: 0 }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      : null
                     }
+                    <div style={{ width: 52, height: 52, background: "#f3f4f6", borderRadius: 8, display: job.company_logo ? "none" : "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <i className="bi bi-building" style={{ color: "#9ca3af", fontSize: "1.25rem" }}></i>
+                    </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: ".65rem", flexWrap: "wrap", marginBottom: ".35rem" }}>
                         <h3 style={{ fontFamily: "var(--font-body)", fontSize: "1rem", fontWeight: 700 }}>{job.title}</h3>
@@ -115,10 +188,14 @@ export default function Careers() {
                       </div>
                       <div style={{ fontSize: ".875rem", color: "#4b5563", marginBottom: ".5rem" }}>{job.company} &nbsp;·&nbsp; {job.location || "Remote"}</div>
                       <div style={{ display: "flex", gap: ".65rem", flexWrap: "wrap" }}>
-                        <span className="badge badge--blue"><i className="bi bi-briefcase"></i> {job.job_type.replace("_", " ")}</span>
+                        <span className="badge badge--blue"><i className="bi bi-briefcase"></i> {job.job_type?.replace("_", " ") || "Full Time"}</span>
                         {job.category_name && <span className="badge badge--gray">{job.category_name}</span>}
                         {job.salary_range && <span className="badge badge--green"><i className="bi bi-cash"></i> {job.salary_range}</span>}
-                        {job.deadline && <span className="badge badge--orange"><i className="bi bi-calendar3"></i> Closes {new Date(job.deadline).toLocaleDateString("en-KE")}</span>}
+                        {job.deadline && (
+                          <span className="badge badge--orange" style={{ color: job.is_expired ? "#dc2626" : "inherit" }}>
+                            <i className="bi bi-calendar3"></i> {job.is_expired ? "Expired" : `Closes ${new Date(job.deadline).toLocaleDateString("en-KE")}`}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

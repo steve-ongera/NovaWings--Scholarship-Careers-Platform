@@ -26,19 +26,70 @@ export default function Scholarship() {
   };
 
   useEffect(() => {
-    destinationService.list().then((r) => setDestinations(r.data));
+    // Fetch destinations with proper error handling
+    const fetchDestinations = async () => {
+      try {
+        const response = await destinationService.list();
+        // Handle different response structures
+        let destinationsData = [];
+        if (response.data) {
+          destinationsData = response.data.results || response.data;
+        } else if (Array.isArray(response)) {
+          destinationsData = response;
+        } else {
+          destinationsData = [];
+        }
+        setDestinations(destinationsData);
+      } catch (error) {
+        console.error("Error fetching destinations:", error);
+        setDestinations([]); // Set empty array on error
+      }
+    };
+    
+    fetchDestinations();
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    const params = {};
-    if (filters.tier)  params.tier                   = filters.tier;
-    if (filters.level) params.level                   = filters.level;
-    if (filters.dest)  params["destination__code"]    = filters.dest;
-    if (filters.q)     params.search                  = filters.q;
-    scholarshipService.list(params)
-      .then((r) => setScholarships(r.data.results || r.data))
-      .finally(() => setLoading(false));
+    const fetchScholarships = async () => {
+      setLoading(true);
+      try {
+        const params = {};
+        if (filters.tier)  params.tier = filters.tier;
+        if (filters.level) params.level = filters.level;
+        if (filters.dest)  params.destination__code = filters.dest;
+        if (filters.q)     params.search = filters.q;
+        
+        const response = await scholarshipService.list(params);
+        
+        // Handle different response structures
+        let scholarshipsData = [];
+        if (response.data) {
+          scholarshipsData = response.data.results || response.data;
+        } else if (Array.isArray(response)) {
+          scholarshipsData = response;
+        } else {
+          scholarshipsData = [];
+        }
+        
+        // Transform data to include computed properties
+        const transformedScholarships = scholarshipsData.map(scholarship => ({
+          ...scholarship,
+          destination_flag: scholarship.destination?.flag_emoji || "🌍",
+          destination_name: scholarship.destination?.name || "Various",
+          is_paid: scholarship.tier === "premium" || scholarship.tier === "gold",
+          is_expired: scholarship.deadline ? new Date(scholarship.deadline) < new Date() : false
+        }));
+        
+        setScholarships(transformedScholarships);
+      } catch (error) {
+        console.error("Error fetching scholarships:", error);
+        setScholarships([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchScholarships();
   }, [search.toString()]);
 
   return (
@@ -72,15 +123,33 @@ export default function Scholarship() {
         {/* Filters row */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem" }}>
           {/* Destination */}
-          <select className="form-control" style={{ width: "auto" }} value={filters.dest} onChange={(e) => setFilter("destination", e.target.value)}>
+          <select 
+            className="form-control" 
+            style={{ width: "auto", minWidth: "200px" }} 
+            value={filters.dest} 
+            onChange={(e) => setFilter("destination", e.target.value)}
+          >
             <option value="">All Destinations</option>
-            {destinations.map((d) => <option key={d.code} value={d.code}>{d.flag_emoji} {d.name}</option>)}
+            {Array.isArray(destinations) && destinations.map((d) => (
+              <option key={d.code || d.id} value={d.code}>
+                {d.flag_emoji} {d.name}
+              </option>
+            ))}
           </select>
 
           {/* Level */}
-          <select className="form-control" style={{ width: "auto" }} value={filters.level} onChange={(e) => setFilter("level", e.target.value)}>
+          <select 
+            className="form-control" 
+            style={{ width: "auto" }} 
+            value={filters.level} 
+            onChange={(e) => setFilter("level", e.target.value)}
+          >
             <option value="">All Levels</option>
-            {LEVELS.slice(1).map((l) => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
+            {LEVELS.slice(1).map((l) => (
+              <option key={l} value={l}>
+                {l.charAt(0).toUpperCase() + l.slice(1)}
+              </option>
+            ))}
           </select>
 
           {/* Tier */}
@@ -94,6 +163,8 @@ export default function Scholarship() {
                   background: filters.tier === t ? "var(--nw-navy)" : "white",
                   color:      filters.tier === t ? "white" : "var(--nw-navy)",
                   border: "1.5px solid var(--nw-navy)",
+                  cursor: "pointer",
+                  transition: "all 0.2s"
                 }}
               >
                 {t ? t.charAt(0).toUpperCase() + t.slice(1) : "All Tiers"}
@@ -104,7 +175,9 @@ export default function Scholarship() {
 
         {/* Grid */}
         {loading ? (
-          <div className="flex-center" style={{ padding: "5rem" }}><div className="spinner"></div></div>
+          <div className="flex-center" style={{ padding: "5rem" }}>
+            <div className="spinner"></div>
+          </div>
         ) : scholarships.length === 0 ? (
           <div className="text-center" style={{ padding: "5rem", color: "#9ca3af" }}>
             <i className="bi bi-search" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem" }}></i>
@@ -114,18 +187,31 @@ export default function Scholarship() {
           <div className="scholarship-grid">
             {scholarships.map((s) => (
               <div key={s.id} className="card">
-                {s.cover_image && <img src={s.cover_image} alt={s.title} className="card__img" />}
+                {s.cover_image && (
+                  <img 
+                    src={s.cover_image} 
+                    alt={s.title} 
+                    className="card__img"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                )}
                 <div className="card__body">
                   <div className="flex-between mb-2">
                     <span className={`tier-badge tier-badge--${s.tier}`}>
                       <i className={s.tier === "gold" ? "bi-star-fill" : s.tier === "premium" ? "bi-lock-fill" : "bi-unlock-fill"}></i>
                       {s.tier}
                     </span>
-                    <span className="text-muted" style={{ fontSize: ".78rem" }}>{s.destination_flag} {s.destination_name}</span>
+                    <span className="text-muted" style={{ fontSize: ".78rem" }}>
+                      {s.destination_flag} {s.destination_name}
+                    </span>
                   </div>
                   <h3 className="card__title">{s.title}</h3>
                   <div className="card__meta">
-                    {s.university && <span><i className="bi bi-building"></i> {s.university}</span>}
+                    {s.university && (
+                      <span><i className="bi bi-building"></i> {s.university}</span>
+                    )}
                     <span><i className="bi bi-award"></i> {s.level}</span>
                     {s.deadline && (
                       <span style={{ color: s.is_expired ? "#dc2626" : "inherit" }}>
