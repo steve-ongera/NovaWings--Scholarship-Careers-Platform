@@ -93,7 +93,7 @@ export default function Scholarship() {
   }, [search.toString()]);
 
   return (
-    <div style={{ paddingTop: "var(--navbar-h)" }}>
+    <div style={{ paddingTop: "1px" }}>
       {/* Page header */}
       <div style={{ background: "linear-gradient(135deg, var(--nw-midnight), var(--nw-navy))", padding: "4rem 0 3rem" }}>
         <div className="container text-center">

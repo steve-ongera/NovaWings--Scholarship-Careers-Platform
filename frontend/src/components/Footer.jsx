@@ -198,7 +198,7 @@ export default function Footer() {
                   <i className="bi bi-file-text"></i> Terms of Service
                 </Link>
                 <span style={{ color: "rgba(255,255,255,.4)", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  Made with <i className="bi bi-heart-fill" style={{ color: "var(--nw-gold)" }}></i> in Nairobi
+                  Fly Students 
                 </span>
               </div>
             </div>

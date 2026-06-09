@@ -24,7 +24,7 @@ export default function Contact() {
   };
 
   return (
-    <div style={{ paddingTop: "var(--navbar-h)" }}>
+    <div style={{ paddingTop: "1px" }}>
       <div style={{ background: "linear-gradient(135deg, var(--nw-midnight), var(--nw-navy))", padding: "4rem 0 3rem" }}>
         <div className="container text-center">
           <h1 style={{ color: "white", fontSize: "2.5rem" }}>Get in <span className="text-gold">Touch</span></h1>
